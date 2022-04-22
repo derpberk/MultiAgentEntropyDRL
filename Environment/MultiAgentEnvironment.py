@@ -1,12 +1,12 @@
 import gym
 import numpy as np
 from Environment.GPutils import GaussianProcessRegressorPytorch
+from sklearn.gaussian_process.kernels import Matern, ConstantKernel as C, WhiteKernel as W
+from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.metrics import mean_squared_error as MSE
 from Environment.GroundTruths import ShekelGT
-import matplotlib.pyplot as plt
 from scipy.spatial.distance import cdist
-from numba import jit
-
+from OilSpillEnvironment import OilSpillEnv
 
 class DiscreteVehicle:
 
@@ -215,16 +215,17 @@ class UncertaintyReductionMA(gym.Env):
         self.measured_locations = None
         self.measured_values = None
         self.mu = None
-        self.lower_confidence = None
-        self.upper_confidence = None
         self.uncertainty = None
         self._uncertainty = None
         self.uncertainty_initial = None
-        self.GPR = GaussianProcessRegressorPytorch(training_iter=100, device=device, lengthscale=10)
+        self.kernel = C(1.0, constant_value_bounds = 'fixed') * Matern(length_scale=10, length_scale_bounds='fixed') + W(noise_level = 1E-3)
+        self.GPR = GaussianProcessRegressor(kernel=self.kernel, optimizer=None)
         self.fig = None
         self.mse = None
         self._mse = None
-        self.gt = ShekelGT(self.navigation_map.shape, self.visitable_positions)
+        self.benchmark = OilSpillEnv(self.navigation_map, dt=1, flow = 100, gamma=1, kc = 1, kw=1)
+
+        #self.gt = ShekelGT(self.navigation_map.shape, self.visitable_positions)
 
         # Reward function parameters #
         self.distance_penalization_weight = 1/self.number_of_agents
@@ -258,7 +259,7 @@ class UncertaintyReductionMA(gym.Env):
         collision_array = self.fleet.move(action)
 
         # Take measurements in the current positions #
-        self.measured_values, self.measured_locations, redundant = self.fleet.measure(gt=self.gt)
+        self.measured_values, self.measured_locations, redundant = self.fleet.measure(gt=self.benchmark)
         # Update the model
         self.update_model()
         # Compute the new reward #
@@ -270,6 +271,8 @@ class UncertaintyReductionMA(gym.Env):
         # Terminal condition verification #
         done = np.mean(self.fleet.get_distances()) > self.distance_budget or self.fleet.fleet_collisions > self.max_number_of_collisions
 
+        self.benchmark.step()
+
         return self.state, reward, done, {}
 
     def update_model(self):
@@ -277,25 +280,21 @@ class UncertaintyReductionMA(gym.Env):
 
         # Predict the new model #
         self.GPR.fit(self.measured_locations, self.measured_values)
-        mu, lower_confidence, upper_confidence = self.GPR.predict(self.visitable_positions)
+        mu, std = self.GPR.predict(self.visitable_positions, return_std=True)
 
         # Reshape the mean map #
         self.mu = np.zeros_like(self.navigation_map)
-        self.mu[self.visitable_positions[:, 0].astype(int), self.visitable_positions[:, 1].astype(int)] = mu.cpu().numpy()
+        self.mu[self.visitable_positions[:, 0].astype(int), self.visitable_positions[:, 1].astype(int)] = mu
         # Compute the new uncertainty #
         self._uncertainty = np.copy(self.uncertainty)
         self.uncertainty = np.zeros_like(self.navigation_map)
-        lower_confidence = lower_confidence.cpu().numpy()
-        upper_confidence = upper_confidence.cpu().numpy()
-        self.uncertainty[self.visitable_positions[:, 0].astype(int), self.visitable_positions[:, 1].astype(
-            int)] = upper_confidence - lower_confidence
+        self.uncertainty[self.visitable_positions[:, 0].astype(int), self.visitable_positions[:, 1].astype(int)] = std
 
         # Get the normalized MSE #
-        normalized_gt = (self.gt.GroundTruth_field - self.gt.GroundTruth_field.mean()) / (
-                    self.gt.GroundTruth_field.std() + 1E-8)
-        normalized_predicted_gt = (mu.cpu().numpy() - self.gt.GroundTruth_field.mean()) / (
-                    self.gt.GroundTruth_field.std() + 1E-8)
-        self.mse = MSE(y_true=normalized_gt, y_pred=normalized_predicted_gt, squared=False)
+        self.mse = MSE(y_true = self.benchmark.density[self.visitable_positions[:,0].astype(int),self.visitable_positions[:,1].astype(int)],
+                       y_pred = self.mu[self.visitable_positions[:,0].astype(int),self.visitable_positions[:,1].astype(int)])
+
+
 
     def reward_function(self, collition_array):
         """ The reward is a sum of two components:
@@ -340,37 +339,20 @@ class UncertaintyReductionMA(gym.Env):
         else:
             self.fleet.reset(initial_positions=self.initial_positions)
 
-        self.gt.reset()
+        #self.gt.reset()
+        self.benchmark.reset()
+        self.benchmark.update_to_time(50)
 
         # Take measurements
-        self.measured_values, self.measured_locations, _ = self.fleet.measure(gt=self.gt)
+        self.measured_values, self.measured_locations, _ = self.fleet.measure(gt=self.benchmark)
 
         if self.initial_meas_locs is not None:
-            self.fleet.measure(gt=self.gt, extra_positions = self.initial_meas_locs)
+            self.fleet.measure(gt=self.benchmark, extra_positions = self.initial_meas_locs)
 
-        # Predict the new model #
-        self.GPR.fit(self.measured_locations, self.measured_values)
-        mu, lower_confidence, upper_confidence = self.GPR.predict(self.visitable_positions)
         # Reshape #
-        self.mu = np.zeros_like(self.navigation_map)
-        self.mu[self.visitable_positions[:,0].astype(int), self.visitable_positions[:,1].astype(int)] = mu.cpu().numpy()
+        self.update_model()
 
-        self.uncertainty = np.zeros_like(self.navigation_map)
-        lower_confidence = lower_confidence.cpu().numpy()
-        upper_confidence = upper_confidence.cpu().numpy()
-        self.uncertainty[self.visitable_positions[:,0].astype(int), self.visitable_positions[:,1].astype(int)] = upper_confidence - lower_confidence
-        self._uncertainty = np.copy(self.uncertainty)
         self.uncertainty_initial = np.sum(self.uncertainty)
-
-        normalized_gt = (self.gt.GroundTruth_field - self.gt.GroundTruth_field.mean()) / (
-                    self.gt.GroundTruth_field.std() + 1E-8)
-        normalized_predicted_gt = (mu.cpu().numpy() - self.gt.GroundTruth_field.mean()) / (
-                    self.gt.GroundTruth_field.std() + 1E-8)
-
-        self.mse = MSE(y_true=normalized_gt, y_pred=normalized_predicted_gt, squared = False)
-        self._mse = self.mse
-
-        self.normalization_value = self.mse
 
         self.state = self.render_state()
 
@@ -383,6 +365,7 @@ class UncertaintyReductionMA(gym.Env):
             3) The current position map
             4) The other agents positions
         """
+
         nav_map = np.copy(self.navigation_map)
         positions_map = np.zeros(shape=(self.number_of_agents, self.navigation_map.shape[0], self.navigation_map.shape[1]))
 
@@ -390,8 +373,9 @@ class UncertaintyReductionMA(gym.Env):
             positions_map[j, self.fleet.vehicles[j].position[0].astype(int), self.fleet.vehicles[j].position[1].astype(int)] = 1.0
 
         uncertainty = (self.uncertainty - self.uncertainty.min()) / (self.uncertainty.max() - self.uncertainty.min() + 1E-8)
+        mu = (self.mu - self.mu.min()) / (self.mu.max() - self.mu.min() + 1E-8)
 
-        return np.concatenate((nav_map[np.newaxis], uncertainty[np.newaxis], positions_map))
+        return np.concatenate((nav_map[np.newaxis], uncertainty[np.newaxis], mu[np.newaxis], positions_map))
 
     def render(self, mode='human'):
 
@@ -415,12 +399,21 @@ class UncertaintyReductionMA(gym.Env):
 
         if self.fig is None:
             plt.ion()
-            self.fig, self.axs = plt.subplots(1, 4)
+            self.fig, self.axs = plt.subplots(2, 4)
 
-            self.d0 = self.axs[0].imshow(self.state[0], cmap='gray')
-            self.d1 = self.axs[1].imshow(self.state[1], cmap='jet', vmin=0, vmax=1, interpolation=None)
-            self.d2 = self.axs[2].imshow(np.sum(self.state[3:], axis=0), cmap='gray')
-            self.d3 = self.axs[3].imshow(self.state[2], cmap='gray')
+            self.d0 = self.axs[0][0].imshow(self.state[0], cmap='gray')
+            self.axs[0][0].set_title('Nav. Map')
+            self.d1 = self.axs[0][1].imshow(self.state[1], cmap='jet', vmin=0, vmax=1, interpolation=None)
+            self.axs[0][1].set_title('Uncertainty')
+            self.d2 = self.axs[0][2].imshow(np.sum(self.state[3:], axis=0), cmap='gray')
+            self.axs[0][2].set_title('Other positions')
+            self.d3 = self.axs[0][3].imshow(self.state[2], cmap='jet')
+            self.axs[0][3].set_title('Model')
+            self.d4 = self.axs[1][0].imshow(self.benchmark.density, cmap='jet')
+            self.axs[1][0].set_title('Real field')
+            self.d5 = self.axs[1][1].imshow(self.mu, cmap='jet', vmin=0, vmax=np.max(self.benchmark.density))
+            self.d6 = self.axs[1][2].imshow(self.mu, cmap='jet', vmin=0, vmax=np.max(self.benchmark.density))
+            self.d7 = self.axs[1][2].imshow(self.mu, cmap='jet', vmin=0, vmax=np.max(self.benchmark.density))
 
 
         else:
@@ -428,6 +421,8 @@ class UncertaintyReductionMA(gym.Env):
             self.d1.set_data(self.state[1])
             self.d2.set_data(np.sum(self.state[3:], axis=0))
             self.d3.set_data(self.state[2])
+            self.d4.set_data(self.benchmark.density)
+            self.d5.set_data(self.mu)
 
         self.fig.canvas.draw()
         plt.pause(0.1)

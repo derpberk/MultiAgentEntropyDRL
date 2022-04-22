@@ -7,9 +7,8 @@ nav = np.genfromtxt('../Environment/ypacarai_map.csv')
 n_agents = 4
 init_pos = np.array([[66, 74],[50,50], [60,50], [65,50]])
 
-
 env = UncertaintyReductionMA(navigation_map=nav,
-                   movement_length=10,
+                   movement_length=5,
                    number_of_agents=n_agents,
                    initial_positions=init_pos,
                    initial_meas_locs=None,

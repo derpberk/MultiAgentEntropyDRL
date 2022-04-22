@@ -33,7 +33,7 @@ class GaussianProcessRegressorPytorch:
 
         self.y_train = None
         self.x_train = None
-        self.likelihood = gpytorch.likelihoods.GaussianLikelihood(noise=1E-5)
+        self.likelihood = gpytorch.likelihoods.GaussianLikelihood(noise=1E-10)
         self.GPmodel = ExactGPModel(train_x=self.x_train,
                                     train_y=self.y_train,
                                     likelihood=self.likelihood,
