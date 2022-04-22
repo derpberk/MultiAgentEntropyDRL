@@ -6,13 +6,7 @@ nav = np.genfromtxt('../Environment/ypacarai_map.csv')
 n_agents = 4
 init_pos = np.array([[65, 75], [75, 80], [85, 90], [100, 95]])
 
-env = UncertaintyReductionMA(navigation_map=nav,
-                             movement_length=10,
-                             number_of_agents=n_agents,
-                             initial_positions=init_pos,
-                             initial_meas_locs=None,
-                             distance_budget=200,
-                             device='cpu')
+env = UncertaintyReductionMA(navigation_map=nav, number_of_agents=n_agents, initial_positions=init_pos, movement_length=10, distance_budget=200, initial_meas_locs=None)
 
 multiagent = MultiAgentDuelingDQNAgent(env=env,
                                        memory_size=int(1E5),

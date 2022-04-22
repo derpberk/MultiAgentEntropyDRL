@@ -1,7 +1,7 @@
 import numpy as np
 import gpytorch
 import torch.optim
-from utils import print_log, message_log
+from ..utils import print_log, message_log
 
 
 class ExactGPModel(gpytorch.models.ExactGP):
@@ -9,7 +9,7 @@ class ExactGPModel(gpytorch.models.ExactGP):
     def __init__(self, train_x, train_y, likelihood, lengthscale):
         super(ExactGPModel, self).__init__(train_x, train_y, likelihood)
         self.mean_module = gpytorch.means.ConstantMean()
-        self.covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel())
+        self.covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.MaternKernel())
         self.covar_module.base_kernel.lengthscale = lengthscale
         self.num_outputs = 1
 
@@ -33,7 +33,7 @@ class GaussianProcessRegressorPytorch:
 
         self.y_train = None
         self.x_train = None
-        self.likelihood = gpytorch.likelihoods.GaussianLikelihood(noise=1E-5)
+        self.likelihood = gpytorch.likelihoods.GaussianLikelihood(noise=1E-10)
         self.GPmodel = ExactGPModel(train_x=self.x_train,
                                     train_y=self.y_train,
                                     likelihood=self.likelihood,
