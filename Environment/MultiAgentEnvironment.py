@@ -432,8 +432,8 @@ class UncertaintyReductionMA(gym.Env):
         for j in range(self.number_of_agents):
             positions_map[j, self.fleet.vehicles[j].position[0].astype(int), self.fleet.vehicles[j].position[1].astype(int)] = 1.0
 
-        uncertainty = (self.uncertainty - self.uncertainty.min()) / (self.uncertainty.max() - self.uncertainty.min() + 1E-8)
-        mu = (self.mu - self.mu.min()) / (self.mu.max() - self.mu.min() + 1E-8)
+        uncertainty = self.uncertainty  / (self.uncertainty.max() + 1E-8)
+        mu = self.mu / (self.mu.max() + 1E-8)
 
         return np.concatenate((nav_map[np.newaxis], uncertainty[np.newaxis], mu[np.newaxis], positions_map))
 
@@ -475,7 +475,7 @@ class UncertaintyReductionMA(gym.Env):
             self.axs[1][0].set_title('Real field')
             self.d5 = self.axs[1][1].imshow(self.mu, cmap='jet', vmin=0, vmax=np.max(self.benchmark.density),interpolation='bilinear')
             self.d6 = self.axs[1][2].imshow(self.mu, cmap='jet', vmin=0, vmax=np.max(self.benchmark.density))
-            self.d7 = self.axs[1][2].imshow(self.mu, cmap='jet', vmin=0, vmax=np.max(self.benchmark.density))
+            self.d7 = self.axs[1][3].imshow(self.mu, cmap='jet', vmin=0, vmax=np.max(self.benchmark.density))
 
 
         else:
