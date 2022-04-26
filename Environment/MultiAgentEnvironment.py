@@ -238,6 +238,7 @@ class UncertaintyReductionMA(gym.Env):
         # Benchmark #
         self.benchmark = OilSpillEnv(self.navigation_map, dt=0.5, flow = 10, gamma=1, kc = 1, kw=1)
         self.static_scenario = static_scenario
+        self.true_map_normalized = None
 
 
         # Reward function parameters #
@@ -254,6 +255,25 @@ class UncertaintyReductionMA(gym.Env):
 
         # Return the action valid flag #
         return not self.fleet.check_collisions([a])[0]
+
+    @staticmethod
+    def minmax_normalization(x):
+        return (x - np.min(x)) / (np.max(x) - np.min(x) + 1e-8)
+
+    def get_metrics(self):
+        """ Compute the different metrics and return a dictionary """
+        # Compute the uncertainty #
+        mean_uncertainty = np.mean(self.uncertainty)
+        # Compute the max error #
+        max_difference = (np.max(self.benchmark.density) - np.max(self.mu))/np.max(self.benchmark.density + 1e-6)
+        # Compute mean distance #
+        distance_matrix = self.fleet.get_distance_matrix()
+        mean_distance = np.sum(distance_matrix)/(self.number_of_agents-1)
+        # Individual agent distance #
+        individual_distance = np.sum(distance_matrix, axis=1)
+
+        return {'mse': self.mse, 'uncertainty': mean_uncertainty, 'max_difference': max_difference, 'mean_distance': mean_distance, "individual_distance": individual_distance}
+
 
     def step(self, action):
         """Run one timestep of the environment's dynamics. When end of
@@ -313,8 +333,8 @@ class UncertaintyReductionMA(gym.Env):
         self.uncertainty[self.visitable_positions[:, 0].astype(int), self.visitable_positions[:, 1].astype(int)] = std
 
         # Get the normalized MSE #
-        self.mse = MSE(y_true = self.benchmark.density[self.visitable_positions[:,0].astype(int),self.visitable_positions[:,1].astype(int)],
-                       y_pred = self.mu[self.visitable_positions[:,0].astype(int),self.visitable_positions[:,1].astype(int)])
+        self.mse = np.sum(np.abs(self.true_map_normalized[self.visitable_positions[:,0].astype(int),self.visitable_positions[:,1].astype(int)] -
+                          self.minmax_normalization(self.mu[self.visitable_positions[:,0].astype(int),self.visitable_positions[:,1].astype(int)])))
 
 
     def reward_function(self, collition_array, return_individual_rewards=False):
@@ -339,8 +359,8 @@ class UncertaintyReductionMA(gym.Env):
 
         # Compute the maximum real regret #
         # Max_regret = y_actual_visited - y_max_visited
-        max_regret = - np.max(self.measured_values[-8:-4]) + self.measured_values[-4:]
-        max_regret = max_regret / np.max(self.measured_values)
+        max_regret = - np.max(self.measured_values[-2*self.number_of_agents:-self.number_of_agents]) + self.measured_values[-self.number_of_agents:]
+        max_regret = max_regret / (np.max(self.measured_values) + 1e-6)
 
         regret_mask = max_regret > 0
 
@@ -380,7 +400,8 @@ class UncertaintyReductionMA(gym.Env):
 
         #self.gt.reset()
         self.benchmark.reset()
-        self.benchmark.update_to_time(25)
+        self.benchmark.update_to_time(50)
+        self.true_map_normalized = self.minmax_normalization(self.benchmark.density)
 
         # Take measurements
         self.measured_values, self.measured_locations = self.fleet.measure(gt=self.benchmark)
@@ -450,14 +471,15 @@ class UncertaintyReductionMA(gym.Env):
             self.axs[0][2].set_title('Other positions')
             self.d3 = self.axs[0][3].imshow(self.state[2], cmap='jet')
             self.axs[0][3].set_title('Model')
-            self.d4 = self.axs[1][0].imshow(self.benchmark.density, cmap='jet',vmin = 0, vmax=np.max(self.benchmark.density))
+            self.d4 = self.axs[1][0].imshow(self.benchmark.density, cmap='jet',vmin = 0, vmax=np.max(self.benchmark.density), interpolation='bilinear')
             self.axs[1][0].set_title('Real field')
-            self.d5 = self.axs[1][1].imshow(self.mu, cmap='jet', vmin=0, vmax=np.max(self.benchmark.density))
+            self.d5 = self.axs[1][1].imshow(self.mu, cmap='jet', vmin=0, vmax=np.max(self.benchmark.density),interpolation='bilinear')
             self.d6 = self.axs[1][2].imshow(self.mu, cmap='jet', vmin=0, vmax=np.max(self.benchmark.density))
             self.d7 = self.axs[1][2].imshow(self.mu, cmap='jet', vmin=0, vmax=np.max(self.benchmark.density))
 
 
         else:
+
             self.d0.set_data(self.state[0])
             self.d1.set_data(self.state[1])
             self.d2.set_data(np.sum(self.state[3:], axis=0))
@@ -498,11 +520,11 @@ if __name__ == '__main__':
 
     nav = np.genfromtxt('./example_map.csv', delimiter=',')
     n_agents = 4
-    init_pos = np.array([[65,75],[65,80],[85,90],[100,95]])*1/3
+    init_pos = np.array([[66, 74], [50, 50], [60, 50], [65, 50]]) / 3
     init_pos = init_pos.astype(int)
 
 
-    env = UncertaintyReductionMA(navigation_map=nav, number_of_agents=n_agents, initial_positions=init_pos, movement_length=2, distance_budget=200, initial_meas_locs=None)
+    env = UncertaintyReductionMA(navigation_map=nav, number_of_agents=n_agents, initial_positions=init_pos, movement_length=1, distance_budget=200, initial_meas_locs=None)
 
     env.seed(20)
 
@@ -512,15 +534,20 @@ if __name__ == '__main__':
     U = []
     D = []
 
+
     for t in range(T):
 
         print("Run ", t)
         s = env.reset()
         d = False
 
-
         while not d:
+
             action = np.random.randint(0, 8, n_agents)
+
+            while any(env.fleet.check_collisions(action)):
+                action = np.random.randint(0, 8, n_agents)
+
             s, r, d, _ = env.step(action)
             print("Reward: ", r)
             env.render()

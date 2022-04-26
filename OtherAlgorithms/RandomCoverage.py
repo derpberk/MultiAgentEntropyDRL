@@ -29,7 +29,7 @@ for t in range(1):
 
 	while not done:
 
-		_, r, done, info = env.step(action)
+		s, r, done, info = env.step(action)
 
 		if any(env.fleet.check_collisions(action)):
 
@@ -56,7 +56,7 @@ for t in range(1):
 
 	fig,axs = plt.subplots(5,1, sharex=True)
 
-	axs[0].plot(np.cumsum(R, axis=0))
+	axs[0].plot(np.cumsum(R,axis=0))
 	axs[0].set_title('Reward')
 	axs[0].legend(['Agent {}'.format(i) for i in range(n_agents)])
 	axs[1].plot(np.asarray(Unc))
@@ -66,7 +66,7 @@ for t in range(1):
 	axs[3].plot(np.asarray(Colls))
 	axs[3].set_title('Collisions')
 	axs[4].plot(np.asarray(Regr))
-	axs[4].set_title('Regret')
+	axs[4].set_title('Inverse regret')
 	plt.show(block=True)
 
 # plt.close()

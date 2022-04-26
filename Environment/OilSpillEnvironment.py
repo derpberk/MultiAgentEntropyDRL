@@ -64,8 +64,8 @@ class OilSpillEnv():
 		y0 = np.random.randint(0, self.boundaries_map.shape[1])
 
 		# Current vector field
-		self.u = np.sin(np.pi * (self.x - x0) / 50) * np.cos(np.pi * (self.y - y0) / 50)
-		self.v = -np.cos(np.pi * (self.x - x0) / 50) * np.sin(np.pi * (self.y - y0) / 50)
+		self.u = np.sin(np.pi * (self.x - x0) / np.random.randint(3,100)) * np.cos(np.pi * (self.y - y0) / np.random.randint(3,100))
+		self.v = -np.cos(np.pi * (self.x - x0) / np.random.randint(3,100)) * np.sin(np.pi * (self.y - y0) / np.random.randint(3,100))
 
 		# Density map
 		self.density = np.zeros_like(self.boundaries_map)
