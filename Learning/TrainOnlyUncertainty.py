@@ -1,7 +1,6 @@
 from Algorithm.RainbowDQL.Agent.DuelingDQNAgent import MultiAgentDuelingDQNAgent
 from Environment.MultiAgentEnvironment import UncertaintyReductionMA
 import numpy as np
-import matplotlib.pyplot as plt
 
 nav = np.genfromtxt('../Environment/example_map.csv', delimiter=',')
 n_agents = 4
@@ -11,6 +10,7 @@ init_pos = init_pos.astype(int)
 env = UncertaintyReductionMA(navigation_map=nav,
                              number_of_agents=n_agents,
                              initial_positions=init_pos,
+                             random_initial_positions=True,
                              movement_length=1,
                              distance_budget=100,
                              initial_meas_locs=None,
@@ -28,22 +28,7 @@ multiagent = MultiAgentDuelingDQNAgent(env=env,
                                        gamma=0.99,
                                        lr=1e-4,
                                        noisy=False,
-                                       safe_actions=False)
+                                       safe_actions=False,
+                                       save_every=2000)
 
-
-multiagent.load_model('/home/samuel/PycharmProjects/MultiAgentEntropyDRL/Learning/runs/Apr27_12-37-46_samuel-linux/BestPolicy.pth')
-
-multiagent.epsilon = 0
-
-done = False
-s = env.reset()
-
-#env.render()
-R = []
-
-while not done:
-
-    a = multiagent.select_action(s)
-    s,r,done,i = env.step(a)
-    print(env.get_metrics())
-    env.render()
+multiagent.train(episodes=20000)

@@ -193,7 +193,8 @@ class UncertaintyReductionMA(gym.Env):
                  number_of_actions=8,
                  max_number_of_collisions=5,
                  random_initial_positions=False,
-                 static_scenario = True):
+                 static_scenario = True,
+                 only_uncertainty = False):
 
         # Navigation map #
         self.navigation_map = navigation_map
@@ -208,9 +209,15 @@ class UncertaintyReductionMA(gym.Env):
         self.distance_budget = distance_budget
         # Max number of collisions permitted before the episodes ends #
         self.max_number_of_collisions = max_number_of_collisions
+        # Whether to consider the values or not #
+        self.only_uncertainty = only_uncertainty
 
         # Gym environment parameters #
-        self.observation_space = gym.spaces.Box(0.0, 1.0, shape=(4, self.navigation_map.shape[0], self.navigation_map.shape[1]))
+        if self.only_uncertainty:
+            self.observation_space = gym.spaces.Box(0.0, 1.0, shape=(4, self.navigation_map.shape[0], self.navigation_map.shape[1]))
+        else:
+            self.observation_space = gym.spaces.Box(0.0, 1.0, shape=(3, self.navigation_map.shape[0], self.navigation_map.shape[1]))
+
         self.action_space = gym.spaces.Discrete(number_of_actions)
 
 
@@ -240,11 +247,14 @@ class UncertaintyReductionMA(gym.Env):
         self.static_scenario = static_scenario
         self.true_map_normalized = None
 
-
         # Reward function parameters #
         self.distance_penalization_weight = 1/self.number_of_agents
         # In order: uncertainty reduction, collision, distance, and regret #
-        self.r_lambda = [1.0, -1.0, -1.0, 5.0]
+        if not self.only_uncertainty:
+            self.r_lambda = [1.0, -1.0, -1.0, 5.0]
+        else:
+            self.r_lambda = [1.0, -1.0, -1.0, 0.0]
+
         self.distance_threshold = [2*movement_length, 10*movement_length]
         self.distance_threshold_clipping = [1.0, 0.0]
         self.return_individual_rewards = False
@@ -273,7 +283,6 @@ class UncertaintyReductionMA(gym.Env):
         individual_distance = np.sum(distance_matrix, axis=1)
 
         return {'mse': self.mse, 'uncertainty': mean_uncertainty, 'max_difference': max_difference, 'mean_distance': mean_distance, "individual_distance": individual_distance}
-
 
     def step(self, action):
         """Run one timestep of the environment's dynamics. When end of
@@ -333,7 +342,7 @@ class UncertaintyReductionMA(gym.Env):
         self.uncertainty[self.visitable_positions[:, 0].astype(int), self.visitable_positions[:, 1].astype(int)] = std
 
         # Get the normalized MSE #
-        self.mse = np.sum(np.abs(self.true_map_normalized[self.visitable_positions[:,0].astype(int),self.visitable_positions[:,1].astype(int)] -
+        self.mse = np.mean(np.abs(self.true_map_normalized[self.visitable_positions[:,0].astype(int),self.visitable_positions[:,1].astype(int)] -
                           self.minmax_normalization(self.mu[self.visitable_positions[:,0].astype(int),self.visitable_positions[:,1].astype(int)])))
 
 
@@ -393,8 +402,8 @@ class UncertaintyReductionMA(gym.Env):
 
         # Reset the positions #
         if self.random_initial_positions:
-            random_initial_indx = np.random.choice(np.arange(0,len(self.visitable_positions)), replace=False)
-            self.fleet.reset(initial_positions=self.visitable_positions[random_initial_indx])
+            random_initial_indx = np.random.choice(np.arange(0,len(self.visitable_positions)), replace=False, size=self.number_of_agents)
+            self.fleet.reset(initial_positions=self.visitable_positions[random_initial_indx].astype(int))
         else:
             self.fleet.reset(initial_positions=self.initial_positions)
 
@@ -424,15 +433,23 @@ class UncertaintyReductionMA(gym.Env):
             2) The uncertainty map
             3) The current position map
             4) The other agents positions
+            5) The model (if it is specified)
         """
 
+        # The static obstacles map #
         nav_map = np.copy(self.navigation_map)
-        positions_map = np.zeros(shape=(self.number_of_agents, self.navigation_map.shape[0], self.navigation_map.shape[1]))
 
+        # The individual agent positions #
+        positions_map = np.zeros(shape=(self.number_of_agents, self.navigation_map.shape[0], self.navigation_map.shape[1]))
         for j in range(self.number_of_agents):
             positions_map[j, self.fleet.vehicles[j].position[0].astype(int), self.fleet.vehicles[j].position[1].astype(int)] = 1.0
 
+        # The uncertainty map #
         uncertainty = self.uncertainty  / (self.uncertainty.max() + 1E-8)
+
+        if self.only_uncertainty:
+            return np.concatenate((nav_map[np.newaxis], uncertainty[np.newaxis], positions_map))
+
         mu = self.mu / (self.mu.max() + 1E-8)
 
         return np.concatenate((nav_map[np.newaxis], uncertainty[np.newaxis], mu[np.newaxis], positions_map))
@@ -505,11 +522,16 @@ class UncertaintyReductionMA(gym.Env):
             state = self.state
         assert 0 <= agent_num <= self.number_of_agents - 1, "Not enough agents for this observation request. "
 
-        index = [0, 1, 2 + agent_num]
+        if self.only_uncertainty:
+            index = [0, 1, 2 + agent_num]
+            pointer = 2
+        else:
+            index = [0, 1, 2, 3 + agent_num]
+            pointer = 3
 
         common_states = state[index]
 
-        other_agents_positions_state = np.sum(state[np.delete(np.arange(2, 2 + self.number_of_agents), agent_num), :, :], axis=0)
+        other_agents_positions_state = np.sum(state[np.delete(np.arange(pointer, pointer + self.number_of_agents), agent_num), :, :], axis=0)
 
         return np.concatenate((common_states, other_agents_positions_state[np.newaxis]), axis=0)
 
@@ -524,11 +546,11 @@ if __name__ == '__main__':
     init_pos = init_pos.astype(int)
 
 
-    env = UncertaintyReductionMA(navigation_map=nav, number_of_agents=n_agents, initial_positions=init_pos, movement_length=1, distance_budget=200, initial_meas_locs=None)
+    env = UncertaintyReductionMA(navigation_map=nav, number_of_agents=n_agents, random_initial_positions=True, initial_positions=init_pos, movement_length=1, distance_budget=200, initial_meas_locs=None, only_uncertainty=True)
 
     env.seed(20)
 
-    T = 100
+    T = 10
     t0 = time.time()
 
     U = []
@@ -551,7 +573,5 @@ if __name__ == '__main__':
             s, r, d, _ = env.step(action)
             print("Reward: ", r)
             env.render()
-
-
 
     print("Tiempo medio por iteracion: ", (time.time() - t0)/T)
