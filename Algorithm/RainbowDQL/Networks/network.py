@@ -24,7 +24,6 @@ class Network(nn.Module):
 		self.feature_layer = nn.Sequential(
 			nn.Linear(in_dim, 128),
 			nn.LeakyReLU(),
-			nn.Dropout(p=0.2),
 		)
 
 		# set advantage layer
@@ -84,13 +83,10 @@ class DuelingVisualNetwork(nn.Module):
 			FeatureExtractor(in_dim, number_of_features),
 			nn.Linear(number_of_features, 256),
 			nn.LeakyReLU(),
-			nn.Dropout(p=0.2),
 			nn.Linear(256, 256),
 			nn.LeakyReLU(),
-			nn.Dropout(p=0.2),
 			nn.Linear(256, 256),
 			nn.LeakyReLU(),
-			nn.Dropout(p=0.2),
 		)
 
 		# set advantage layer
@@ -147,8 +143,8 @@ class NoisyDuelingVisualNetwork(nn.Module):
 	def forward(self, x: torch.Tensor) -> torch.Tensor:
 		"""Forward method implementation."""
 		feature = self.feature_layer(x)
-		feature = F.dropout(F.leaky_relu(self.common_layer_1(feature)),p=0.2)
-		feature = F.dropout(F.leaky_relu(self.common_layer_2(feature)),p=0.2)
+		feature = F.leaky_relu(self.common_layer_1(feature))
+		feature = F.leaky_relu(self.common_layer_2(feature))
 		feature = F.leaky_relu(self.common_layer_3(feature))
 
 		adv_hid = F.leaky_relu(self.advantage_hidden_layer(feature))
