@@ -282,15 +282,13 @@ class UncertaintyReductionMA(gym.Env):
         # Compute the uncertainty #
         mean_uncertainty = np.mean(self.uncertainty)
         # Compute the max error #
-        max_difference = (np.max(self.benchmark.density) - np.max(self.mu)) / np.max(self.benchmark.density + 1e-6)
         # Compute mean distance #
         distance_matrix = self.fleet.get_distance_matrix()
         mean_distance = np.sum(distance_matrix) / (self.number_of_agents - 1)
         # Individual agent distance #
         individual_distance = np.sum(distance_matrix, axis=1)
 
-        return {'mse': self.mse, 'uncertainty': mean_uncertainty, 'max_difference': max_difference,
-                'mean_distance': mean_distance, "individual_distance": individual_distance}
+        return {'uncertainty': mean_uncertainty,'mean_distance': mean_distance, "individual_distance": individual_distance}
 
     def step(self, action):
         """Run one timestep of the environment's dynamics. When end of
@@ -467,7 +465,7 @@ class UncertaintyReductionMA(gym.Env):
 
         return np.concatenate((nav_map[np.newaxis], self.uncertainty[np.newaxis], positions_map))
 
-    def render(self, mode='human'):
+    def render(self, mode='human', pauseint=0.1):
 
         import matplotlib.pyplot as plt
 
@@ -522,7 +520,7 @@ class UncertaintyReductionMA(gym.Env):
                 self.d4.set_data(self.benchmark.density)
 
         self.fig.canvas.draw()
-        plt.pause(0.1)
+        plt.pause(pauseint)
 
     def seed(self, seed=None):
 

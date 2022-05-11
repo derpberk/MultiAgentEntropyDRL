@@ -13,22 +13,21 @@ env = UncertaintyReductionMA(navigation_map=nav,
                              random_initial_positions=True,
                              movement_length=1,
                              distance_budget=100,
-                             initial_meas_locs=None,
-                             only_uncertainty=True)
+                             initial_meas_locs=None)
 
 multiagent = MultiAgentDuelingDQNAgent(env=env,
-                                       memory_size=int(1E5),
+                                       memory_size=int(1E6),
                                        batch_size=64,
                                        target_update=1,
                                        soft_update=True,
                                        tau=0.0001,
                                        epsilon_values=[1.0, 0.05],
                                        epsilon_interval=[0.0, 0.33],
-                                       learning_starts=0,
+                                       learning_starts=500,
                                        gamma=0.99,
                                        lr=1e-4,
-                                       noisy=False,
+                                       noisy=True,
                                        safe_actions=False,
-                                       save_every=2000)
+                                       save_every=5000)
 
-multiagent.train(episodes=20000)
+multiagent.train(episodes=50000)

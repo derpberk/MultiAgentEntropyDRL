@@ -392,7 +392,8 @@ class MultiAgentDuelingDQNAgent:
 		if self.episodic_loss:
 			self.writer.add_scalar('train/loss', self.episodic_loss, self.episode)
 
-		self.writer.add_scalar('train/epsilon', self.epsilon, self.episode)
+		if not self.noisy:
+			self.writer.add_scalar('train/epsilon', self.epsilon, self.episode)
 		self.writer.add_scalar('train/beta', self.beta, self.episode)
 
 		self.writer.add_scalar('train/accumulated_reward', self.episodic_reward, self.episode)
@@ -400,9 +401,7 @@ class MultiAgentDuelingDQNAgent:
 
 		metrics = self.env.get_metrics()
 
-		self.writer.add_scalar('train/mse', metrics['mse']),self.episode
 		self.writer.add_scalar('train/mean_uncertainty', metrics['uncertainty'],self.episode)
-		self.writer.add_scalar('train/max_difference', metrics['max_difference'],self.episode)
 
 		self.writer.flush()
 

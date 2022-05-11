@@ -13,8 +13,8 @@ env = UncertaintyReductionMA(navigation_map=nav,
                              initial_positions=init_pos,
                              movement_length=1,
                              distance_budget=100,
-                             initial_meas_locs=None,
-                             only_uncertainty=True)
+                             random_initial_positions=True,
+                             initial_meas_locs=None)
 
 multiagent = MultiAgentDuelingDQNAgent(env=env,
                                        memory_size=int(1E5),
@@ -27,14 +27,15 @@ multiagent = MultiAgentDuelingDQNAgent(env=env,
                                        learning_starts=0,
                                        gamma=0.99,
                                        lr=1e-4,
-                                       noisy=False,
+                                       noisy=True,
                                        safe_actions=False)
 
 env.return_individual_rewards = True
 
-multiagent.load_model('/home/samuel/PycharmProjects/MultiAgentEntropyDRL/Learning/runs/Apr27_12-37-46_samuel-linux/BestPolicy.pth')
+multiagent.load_model('/home/azken/Samuel/MultiAgentEntropyDRL/Learning/runs/May11_14-09-47_M3009R21854/BestPolicy.pth')
 
 multiagent.epsilon = 0
+
 
 done = False
 s = env.reset()
@@ -46,26 +47,27 @@ Dist = []
 Colls = []
 Regr = []
 
+
+
 while not done:
+
+    if multiagent.noisy:
+        multiagent.dqn.reset_noise()
 
     a = multiagent.select_action(s)
     s,r,done,i = env.step(a)
-    print(env.get_metrics())
-    env.render()
-
-    print("Reward")
-    print(r[0])
+    #print(env.get_metrics())
+    #env.render()
     R.append(r[0])
     Unc.append(r[1])
     Dist.append(r[2])
     Colls.append(r[3])
-    Regr.append(r[4])
 
-    env.render()
+    env.render(pauseint=0.001)
 
 plt.show(block=True)
 
-fig, axs = plt.subplots(5, 1, sharex=True)
+fig, axs = plt.subplots(4, 1, sharex=True)
 
 axs[0].plot(np.cumsum(R, axis=0))
 axs[0].set_title('Reward')
@@ -76,6 +78,6 @@ axs[2].plot(np.asarray(Dist))
 axs[2].set_title('Distance')
 axs[3].plot(np.asarray(Colls))
 axs[3].set_title('Collisions')
-axs[4].plot(np.asarray(Regr))
-axs[4].set_title('Inverse regret')
 plt.show(block=True)
+
+print(np.sum(R)/4)
