@@ -47,14 +47,13 @@ for t in range(1):
 		Unc.append(r[1])
 		Dist.append(r[2])
 		Colls.append(r[3])
-		Regr.append(r[4])
 
 		env.render()
 
 
 	plt.show(block=True)
 
-	fig,axs = plt.subplots(5,1, sharex=True)
+	fig,axs = plt.subplots(4,1, sharex=True)
 
 	axs[0].plot(np.cumsum(R,axis=0))
 	axs[0].set_title('Reward')
@@ -65,8 +64,6 @@ for t in range(1):
 	axs[2].set_title('Distance')
 	axs[3].plot(np.asarray(Colls))
 	axs[3].set_title('Collisions')
-	axs[4].plot(np.asarray(Regr))
-	axs[4].set_title('Inverse regret')
 	plt.show(block=True)
 
 # plt.close()

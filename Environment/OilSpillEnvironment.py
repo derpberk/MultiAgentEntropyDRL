@@ -153,11 +153,9 @@ class OilSpillEnv():
 
 		self.reset()
 
-		t0 = time.time()
 		for _ in range(t):
 			self.step()
 
-		print("Mean time per iteration: ", (time.time()-t0)/t)
 		return self.density
 
 	def evaluate(self, pos: np.ndarray):
