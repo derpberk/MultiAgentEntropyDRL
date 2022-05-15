@@ -165,10 +165,11 @@ class OilSpillEnv():
 
 if __name__ == '__main__':
 
-	my_map = np.genfromtxt('./example_map.csv', delimiter=',')
+	# my_map = np.genfromtxt('./example_map.csv', delimiter=',')
+	np.random.seed(222)
+	my_map = np.ones((60,60))
 
-
-	env = OilSpillEnv(my_map, dt=1, flow = 10, gamma=1, kc = 1, kw=1)
+	env = OilSpillEnv(my_map, dt=1, flow = 10, gamma=1, kc = 1, kw=0.7)
 	env.reset()
 
 	for _ in range(100):
