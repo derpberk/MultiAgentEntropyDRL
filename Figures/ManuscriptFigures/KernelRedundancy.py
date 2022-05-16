@@ -20,13 +20,19 @@ gray1 = [0.3, 0.3, 0.3]
 gray2 = [0.7, 0.7, 0.7]
 gray3 = [0.2, 0.2, 0.2]
 
+meas = np.array([[-3],[3]])
+sigma = kernel(x,x) - kernel(x,meas) @ (np.linalg.inv(kernel(meas,meas))) @ kernel(meas,x)
+
+sigma = sigma.diagonal()
+
 with plt.style.context('bmh'):
 
+    plt.plot(x, sigma, 'k--', linewidth=2, label = '$\sigma_{X|meas}$')
     plt.plot(x.flatten(), k1.flatten(), color=gray1, linestyle='-', label='$k(p_1, X)$')
-    plt.plot(np.tile(x1,2).flatten(), [0,1], color=gray1, linestyle='-.')
+    plt.plot(np.tile(x1,2).flatten(), [0,1], color=gray1, linestyle='-.',linewidth=1)
     plt.text(x1[0]+0.5, 0.5, '$p_1$', fontsize=14)
     plt.plot(x.flatten(), k2.flatten(), color=gray2, linestyle='-', label='$k(p_2, X)$')
-    plt.plot(np.tile(x2, 2).flatten(), [0, 1], color=gray2, linestyle='-.',)
+    plt.plot(np.tile(x2, 2).flatten(), [0, 1], color=gray2, linestyle='-.', linewidth=1)
     plt.text(x2[0]+0.5, 0.5, '$p_2$', fontsize=14)
     plt.fill_between(x[:50,0], k1[0,:50].T, k2[0,:50].T,  color=gray1, alpha=0.1)
     plt.fill_between(x[50:,0], k1[0,50:].T, k2[0,50:].T, color=gray2, alpha=0.2)
