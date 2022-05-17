@@ -61,19 +61,28 @@ class GAhorizontOptimizer:
 			# Evaluate the population #
 			fitness = self.eval_population(population, base_env)
 			# Generate offspring #
-			offspring = self.generate_offspring(population, self.lambd, self.cx_rate, self.mut_rate)
+			offspring = self.generate_offspring(population, self.pop_size//2, self.cx_rate, self.mut_rate)
 			# Evaluate offspring #
 			offspring_fitness = self.eval_population(offspring, base_env)
 			# Replace the population #
-			population = self.replace_population(population, offspring, fitness, offspring_fitness, self.mu)
+			population = self.replace_population(population, offspring, fitness, offspring_fitness, self.pop_size)
 
+			# Select best individual #
+			best_ind, best_fit = self.select_best_individual(population, fitness)
 			self.print_results(population, fitness, gens)
 
 			gens+=1
 			if gens >= n_max_generations:
 				break
 
-		return population[np.argmax(fitness)][0]
+		return best_ind[0]
+
+	@staticmethod
+	def select_best_individual(pop,fit):
+
+		indx = np.argmax(fit)
+
+		return pop[indx], fit[indx]
 
 	@staticmethod
 	def print_results(population, fitness, gens):
@@ -113,32 +122,40 @@ class GAhorizontOptimizer:
 		offspring = []
 		for _ in range(lambd):
 
-			if np.random.rand() < cx_rate:
-				# Crossover parents #
-				new_individual = self.crossover(population)
-			elif np.random.rand() < mut_rate:
-				# Mutate offspring #
-				new_individual = self.mutate(population)
-			else:
-				new_individual = self.clone(population)
+			rand_cx = np.random.rand()
+			rand_mut = np.random.rand()
 
-			# Append offspring #
-			offspring.append(new_individual)
+			parent1, parent2 = self.select_parents(population)
+
+			# Crossover parents #
+			child1, child2 = self.crossover(parent1, parent2)
+			# Mutate offspring #
+			child1 = self.mutate(individual=child1)
+			child2 = self.mutate(individual=child2)
+
+			offspring.append(child1)
+			offspring.append(child2)
 
 		return np.asarray(offspring)
 
-	def crossover(self, population):
+	def select_parents(self, population):
+		""" Select parents """
+
+		# Select parents #
+		parent1 = population[np.random.randint(0, len(population))]
+		parent2 = population[np.random.randint(0, len(population))]
+
+		return parent1, parent2
+
+	def crossover(self, ind1, ind2):
 		""" Choose randomly two individuals from the population and perform
 		a Two point crossover operation. Return  the first child. """
 
 		# Choose randomly two elements from population #
 
-		indxs = np.random.randint(0, len(population), size=2)
-		parents = population[indxs]
-		# Perform Two point crossover #
-		child1, child2 = self.two_point_crossover(parents[0], parents[1])
+		child1, child2 = self.two_point_crossover(ind1.copy(), ind2.copy())
 		# Return the first child #
-		return child1
+		return child1, child2
 
 	@staticmethod
 	def two_point_crossover(parent1, parent2):
@@ -151,14 +168,11 @@ class GAhorizontOptimizer:
 		child1 = np.concatenate((parent1[:point1], parent2[point1:point2], parent1[point2:]))
 		child2 = np.concatenate((parent2[:point1], parent1[point1:point2], parent2[point2:]))
 		# Return the children #
-		return child1, child2
+		return np.asarray(child1), np.asarray(child2)
 
-	def mutate(self, population):
+	def mutate(self, individual):
 		""" Perform a mutation operation """
 
-		# Choose randomly an individual #
-
-		individual = population[np.random.randint(0,len(population))]
 		# Mutate the individual #
 		new_individual = self.mutate_individual(individual)
 		# Return the mutated individual #
@@ -167,7 +181,7 @@ class GAhorizontOptimizer:
 	def mutate_individual(self, individual):
 		""" Perform a mutation operation on an individual """
 
-		new_individual = individual.copy()
+		new_individual = np.copy(individual)
 		# Choose randomly a position #
 		position = np.random.randint(0, len(individual))
 		# Choose randomly a value #
@@ -220,13 +234,13 @@ class GAhorizontOptimizer:
 if __name__ == "__main__":
 
 
-	env = 	gym.make("Breakout-v4")
+	env = 	gym.make("CartPole-v0")
 	env.reset()
-	optimizer = GAhorizontOptimizer(number_of_actions = 3, horizon = 10, pop_size = 50, cx_rate = 0.6, mut_rate=0.4, mu = 50, lambd=50)
+	optimizer = GAhorizontOptimizer(number_of_actions = env.action_space.n, horizon = 10, pop_size = 50, cx_rate = 0.6, mut_rate=0.4, mu = 50, lambd=50)
 	done = False
 
 	while not done:
 
-		action = optimizer.optimize(env, time_budget = 5, n_max_generations=100)
+		action = optimizer.optimize(env, time_budget = 50000, n_max_generations=100)
 		_, _, done, _ = env.step(action)
 		env.render()
