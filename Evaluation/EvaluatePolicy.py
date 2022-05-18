@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 nav = np.genfromtxt('../Environment/example_map.csv', delimiter=',')
 n_agents = 4
-init_pos = np.array([[66, 74], [50, 50], [60, 50], [65, 50]])/3
+init_pos = np.array([[66, 74], [50, 50], [60, 50], [65, 50], [65, 50], [65, 50]])/3
 init_pos = init_pos.astype(int)
 
 env = UncertaintyReductionMA(navigation_map=nav,
@@ -13,7 +13,7 @@ env = UncertaintyReductionMA(navigation_map=nav,
                              initial_positions=init_pos,
                              movement_length=1,
                              distance_budget=100,
-                             random_initial_positions=True,
+                             random_initial_positions=False,
                              initial_meas_locs=None)
 
 multiagent = MultiAgentDuelingDQNAgent(env=env,
@@ -27,12 +27,12 @@ multiagent = MultiAgentDuelingDQNAgent(env=env,
                                        learning_starts=0,
                                        gamma=0.99,
                                        lr=1e-4,
-                                       noisy=True,
+                                       noisy=False,
                                        safe_actions=False)
 
 env.return_individual_rewards = True
 
-multiagent.load_model('/home/azken/Samuel/MultiAgentEntropyDRL/Learning/runs/May11_14-09-47_M3009R21854/BestPolicy.pth')
+multiagent.load_model('/home/azken/Samuel/MultiAgentEntropyDRL/Learning/runs/May18_10-36-40_M3009R21854/Episode_20000_Policy.pth')
 
 multiagent.epsilon = 0
 
@@ -56,14 +56,14 @@ while not done:
 
     a = multiagent.select_action(s)
     s,r,done,i = env.step(a)
-    #print(env.get_metrics())
-    #env.render()
+    print(env.get_metrics())
+    env.render()
     R.append(r[0])
     Unc.append(r[1])
     Dist.append(r[2])
     Colls.append(r[3])
 
-    env.render(pauseint=0.001)
+    #env.render(pauseint=0.02)
 
 plt.show(block=True)
 

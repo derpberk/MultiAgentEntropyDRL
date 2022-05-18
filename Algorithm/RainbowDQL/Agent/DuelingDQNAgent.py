@@ -84,6 +84,7 @@ class MultiAgentDuelingDQNAgent:
 		self.train_every = train_every
 
 		""" Automatic selection of the device """
+		torch.cuda.empty_cache()
 		self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 		print("Selected device: ", self.device)

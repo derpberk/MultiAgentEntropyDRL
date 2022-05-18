@@ -244,7 +244,7 @@ class UncertaintyReductionMA(gym.Env):
 
         self.lengthscale = lengthscale
         self.noise_level = 0.25
-        self.kernel = RBF(length_scale=self.lengthscale, length_scale_bounds='fixed')
+        self.kernel = Matern(length_scale=self.lengthscale, length_scale_bounds='fixed')
         self.individual_uncertainty_reduction = np.zeros(shape=(self.number_of_agents,*self.navigation_map.shape))
         self.individual_uncertainty = None
 

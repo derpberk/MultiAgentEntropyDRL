@@ -26,7 +26,7 @@ multiagent = MultiAgentDuelingDQNAgent(env=env,
                                        learning_starts=500,
                                        gamma=0.99,
                                        lr=1e-4,
-                                       noisy=True,
+                                       noisy=False,
                                        safe_actions=False,
                                        save_every=5000)
 
