@@ -2,11 +2,22 @@ from Algorithm.RainbowDQL.Agent.DuelingDQNAgent import MultiAgentDuelingDQNAgent
 from Environment.MultiAgentEnvironment import UncertaintyReductionMA
 import numpy as np
 import matplotlib.pyplot as plt
-import torch as th
+from metrics_wrapper import MetricsDataCreator, BenchmarkEvaluator
+
 
 nav = np.genfromtxt('../Environment/example_map.csv', delimiter=',')
 n_agents = 4
-init_pos = np.array([[66, 74], [50, 50], [60, 50], [65, 50], [65, 50], [65, 50]])/3
+init_pos = np.array([[22,24],
+                     [16,16],
+                     [10,13],
+                     [40,28],
+                     [31,11],
+                     [33,26],
+                     [47,30],
+                     [39,18],
+                     [22,6],
+                     [6,17]])
+
 init_pos = init_pos.astype(int)
 
 env = UncertaintyReductionMA(navigation_map=nav,
@@ -31,58 +42,43 @@ multiagent = MultiAgentDuelingDQNAgent(env=env,
                                        noisy=True,
                                        safe_actions=False)
 
+evaluator = MetricsDataCreator(metrics_names=['Mean Reward', 'Uncertainty', 'Distance', 'Collisions', 'RMSE'], algorithm_name='Noisy DRL', experiment_name='Results')
+benchmark = BenchmarkEvaluator(navigation_map=nav)
+benchmark.reset_values()
+
 env.return_individual_rewards = True
 
 multiagent.load_model('/home/azken/Samuel/MultiAgentEntropyDRL/Learning/runs/May24_09-50-20_M3009R21854/BestPolicy.pth')
 
 multiagent.epsilon = 0.0
 
-done = False
-s = env.reset()
+np.random.seed(0)
 
-#env.render()
-R = []
-Unc = []
-Dist = []
-Colls = []
-Regr = []
+for run in range(10):
 
+    done, t = False, 0
 
+    selected_positions = np.random.choice(np.arange(0,len(init_pos)), size=n_agents, replace = False)
+    env.initial_positions = init_pos[selected_positions]
+    s = env.reset()
 
-with th.no_grad():
-    for name, param in multiagent.dqn.named_parameters():
-        if 'bias_mu' in name or 'weight_mu' in name or 'bias_sigma' in name or 'bias_mu':
-            param.copy_(th.zeros(1))
+    benchmark.update_rmse(positions=env.fleet.get_positions())
 
+    #env.render()
 
-while not done:
+    while not done:
 
 
-    a = multiagent.select_action(s, deterministic=True)
+        a = multiagent.select_action(s)
 
-    s,r,done,i = env.step(a)
-    print(env.get_metrics())
-    env.render()
-    R.append(r[0])
-    Unc.append(r[1])
-    Dist.append(r[2])
-    Colls.append(r[3])
+        s,r,done,i = env.step(a)
 
-    #env.render(pauseint=0.02)
+        rmse = benchmark.update_rmse(positions=env.fleet.get_positions())
 
-plt.show(block=True)
+        evaluator.register_step(run_num=run, step = t, algorithm_name='Noisy DRL', metrics=[*r, rmse])
 
-fig, axs = plt.subplots(4, 1, sharex=True)
+        t += 1
 
-axs[0].plot(np.cumsum(R, axis=0))
-axs[0].set_title('Reward')
-axs[0].legend(['Agent {}'.format(i) for i in range(n_agents)])
-axs[1].plot(np.asarray(Unc))
-axs[1].set_title('Uncertainty')
-axs[2].plot(np.asarray(Dist))
-axs[2].set_title('Distance')
-axs[3].plot(np.asarray(Colls))
-axs[3].set_title('Collisions')
-plt.show(block=True)
+        #env.render(pauseint=0.02)
 
-print(np.sum(R)/4)
+    # plt.show(block=True)

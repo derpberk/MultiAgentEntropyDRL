@@ -2,33 +2,59 @@ from Environment.MultiAgentEnvironment import UncertaintyReductionMA
 import numpy as np
 import matplotlib.pyplot as plt
 import time
+from Evaluation.metrics_wrapper import MetricsDataCreator, BenchmarkEvaluator
+
+plt.switch_backend('TkAgg')
+plt.ion()
 
 nav = np.genfromtxt('../Environment/example_map.csv', delimiter=',')
 n_agents = 4
-init_pos = np.array([[66, 74], [50, 50], [60, 50], [65, 50]])/3
+init_pos = np.array([[6,16],
+                     [14,18],
+                     [21,18],
+                     [28,23],
+                     [36,29],
+                     [45,28],
+                     [41,21],
+                     [33,13],
+                     [26,8],
+                     [15,10]])
+
 init_pos = init_pos.astype(int)
 
-env = UncertaintyReductionMA(navigation_map=nav, number_of_agents=n_agents, initial_positions=init_pos, movement_length=2, distance_budget=100, initial_meas_locs=None, lengthscale=0.75)
+env = UncertaintyReductionMA(navigation_map=nav,
+                             number_of_agents=n_agents,
+                             initial_positions=init_pos[0:4,:],
+                             movement_length=1,
+                             distance_budget=100,
+                             random_initial_positions=False,
+                             initial_meas_locs=None)
+
+
+evaluator = MetricsDataCreator(metrics_names=['Mean Reward', 'Uncertainty', 'Distance', 'Collisions', 'RMSE'], algorithm_name='Random Wanderer', experiment_name='RandomWandererResults')
+benchmark = BenchmarkEvaluator(navigation_map=nav)
+benchmark.reset_values()
+
 env.return_individual_rewards = True
-env.eval()
 
+np.random.seed(0)
 
-t0 = time.time()
-for t in range(1):
+for run in range(10):
 
-	env.reset()
-	done = False
+	print("Run ", run)
+	done, t = False, 0
+
+	selected_positions = np.random.choice(np.arange(0, len(init_pos)), size=n_agents, replace=False)
+	env.initial_positions = init_pos[selected_positions]
+	s = env.reset()
+
+	benchmark.reset_values()
+	benchmark.update_rmse(positions=env.fleet.get_positions())
 
 	action = np.random.randint(0, 8, n_agents)
 
 	while any(env.fleet.check_collisions(action)):
 		action = np.random.randint(0, 8, n_agents)
-
-	R = []
-	Unc = []
-	Dist = []
-	Colls = []
-	Regr = []
 
 	while not done:
 
@@ -44,32 +70,10 @@ for t in range(1):
 				action[invalid_mask] = new_actions[invalid_mask]
 				valid = not any(env.fleet.check_collisions(action))
 
-		print("Reward")
-		print(r[0])
-		R.append(r[0])
-		Unc.append(r[1])
-		Dist.append(r[2])
-		Colls.append(r[3])
+		rmse = benchmark.update_rmse(positions=env.fleet.get_positions())
 
-		env.render(pauseint=0.1)
+		evaluator.register_step(run_num=run, step=t, algorithm_name='Noisy DRL', metrics=[*r, rmse])
 
+		t += 1
 
-	plt.show(block=True)
-
-	fig,axs = plt.subplots(4,1, sharex=True)
-
-	axs[0].plot(np.cumsum(R,axis=0))
-	axs[0].set_title('Reward')
-	axs[0].legend(['Agent {}'.format(i) for i in range(n_agents)])
-	axs[1].plot(np.asarray(Unc))
-	axs[1].set_title('Uncertainty')
-	axs[2].plot(np.asarray(Dist))
-	axs[2].set_title('Distance')
-	axs[3].plot(np.asarray(Colls))
-	axs[3].set_title('Collisions')
-	plt.show(block=True)
-	
-
-
-print("Time taken: {}".format(time.time() - t0))
-# plt.close()
+evaluator.register_experiment()

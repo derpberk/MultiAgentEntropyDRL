@@ -135,6 +135,11 @@ class MultiAgentDuelingDQNAgent:
 		if self.noisy and not deterministic:
 			self.dqn.reset_noise()
 
+		if self.noisy:
+			# If noisy, sample new distribution #
+			self.dqn.reset_noise()
+			self.dqn_target.reset_noise()
+
 		if self.epsilon > np.random.rand() and not self.noisy and not self.safe_action:
 			selected_action = self.env.action_space.sample()
 
@@ -153,6 +158,7 @@ class MultiAgentDuelingDQNAgent:
 
 		selected_action = []
 		for i in range(self.env.number_of_agents):
+
 			individual_state = self.env.individual_agent_observation(state=state, agent_num=i)
 			selected_action.append(self.individual_select_action(individual_state, ind=i, deterministic=deterministic))
 

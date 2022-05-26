@@ -482,6 +482,8 @@ class UncertaintyReductionMA(gym.Env):
 
         import matplotlib.pyplot as plt
 
+        plt.ion()
+
         """Renders the environment.
 
         The set of supported modes varies per environment. (And some
