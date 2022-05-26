@@ -256,9 +256,12 @@ class UncertaintyReductionMA(gym.Env):
         self.individual_credit_only = True
         self.distance_penalization_weight = 1 / self.number_of_agents
         # In order: uncertainty reduction, collision, distance #
+        """
         self.r_lambda = [1.0, -1.0, -1.0]
-
         self.distance_threshold = [2 * movement_length, 10 * movement_length]
+        """
+        self.r_lambda = [1.0, -1.0, -0.25]
+        self.distance_threshold = [2, 5]
         self.distance_threshold_clipping = [1.0, 0.0]
         self.return_individual_rewards = False
 
@@ -565,7 +568,7 @@ if __name__ == '__main__':
     init_pos = init_pos.astype(int)
 
     env = UncertaintyReductionMA(navigation_map=nav, number_of_agents=n_agents, random_initial_positions=True,
-                                 initial_positions=init_pos, movement_length=1, distance_budget=200,
+                                 initial_positions=init_pos, movement_length=2, distance_budget=200,
                                  initial_meas_locs=None)
 
     env.seed(20)

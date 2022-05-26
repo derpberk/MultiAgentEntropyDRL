@@ -8,7 +8,7 @@ n_agents = 4
 init_pos = np.array([[66, 74], [50, 50], [60, 50], [65, 50]])/3
 init_pos = init_pos.astype(int)
 
-env = UncertaintyReductionMA(navigation_map=nav, number_of_agents=n_agents, initial_positions=init_pos, movement_length=1, distance_budget=100, initial_meas_locs=None, lengthscale=0.75)
+env = UncertaintyReductionMA(navigation_map=nav, number_of_agents=n_agents, initial_positions=init_pos, movement_length=2, distance_budget=100, initial_meas_locs=None, lengthscale=0.75)
 env.return_individual_rewards = True
 env.eval()
 

@@ -2,6 +2,7 @@ from Algorithm.RainbowDQL.Agent.DuelingDQNAgent import MultiAgentDuelingDQNAgent
 from Environment.MultiAgentEnvironment import UncertaintyReductionMA
 import numpy as np
 import matplotlib.pyplot as plt
+import torch as th
 
 nav = np.genfromtxt('../Environment/example_map.csv', delimiter=',')
 n_agents = 4
@@ -27,15 +28,14 @@ multiagent = MultiAgentDuelingDQNAgent(env=env,
                                        learning_starts=0,
                                        gamma=0.99,
                                        lr=1e-4,
-                                       noisy=False,
+                                       noisy=True,
                                        safe_actions=False)
 
 env.return_individual_rewards = True
 
-multiagent.load_model('/home/azken/Samuel/MultiAgentEntropyDRL/Learning/runs/May18_10-36-40_M3009R21854/Episode_20000_Policy.pth')
+multiagent.load_model('/home/azken/Samuel/MultiAgentEntropyDRL/Learning/runs/May24_09-50-20_M3009R21854/BestPolicy.pth')
 
-multiagent.epsilon = 0
-
+multiagent.epsilon = 0.0
 
 done = False
 s = env.reset()
@@ -49,12 +49,17 @@ Regr = []
 
 
 
+with th.no_grad():
+    for name, param in multiagent.dqn.named_parameters():
+        if 'bias_mu' in name or 'weight_mu' in name or 'bias_sigma' in name or 'bias_mu':
+            param.copy_(th.zeros(1))
+
+
 while not done:
 
-    if multiagent.noisy:
-        multiagent.dqn.reset_noise()
 
-    a = multiagent.select_action(s)
+    a = multiagent.select_action(s, deterministic=True)
+
     s,r,done,i = env.step(a)
     print(env.get_metrics())
     env.render()

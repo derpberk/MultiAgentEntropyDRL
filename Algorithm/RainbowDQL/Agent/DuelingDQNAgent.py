@@ -128,9 +128,12 @@ class MultiAgentDuelingDQNAgent:
 	# TODO: Implement an annealed Learning Rate (see:
 	#  https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.ReduceLROnPlateau.html#torch.optim.lr_scheduler.ReduceLROnPlateau)
 
-	def individual_select_action(self, singular_state: np.ndarray, ind: int) -> np.ndarray:
+	def individual_select_action(self, singular_state: np.ndarray, ind: int, deterministic: bool = False) -> np.ndarray:
 
 		"""Select an action from the input state. If deterministic, no noise is applied. """
+
+		if self.noisy and not deterministic:
+			self.dqn.reset_noise()
 
 		if self.epsilon > np.random.rand() and not self.noisy and not self.safe_action:
 			selected_action = self.env.action_space.sample()
@@ -146,12 +149,12 @@ class MultiAgentDuelingDQNAgent:
 
 		return selected_action
 
-	def select_action(self, state: np.ndarray):
+	def select_action(self, state: np.ndarray, deterministic = False):
 
 		selected_action = []
 		for i in range(self.env.number_of_agents):
 			individual_state = self.env.individual_agent_observation(state=state, agent_num=i)
-			selected_action.append(self.individual_select_action(individual_state, ind=i))
+			selected_action.append(self.individual_select_action(individual_state, ind=i, deterministic=deterministic))
 
 		return np.asarray(selected_action)
 
@@ -184,7 +187,6 @@ class MultiAgentDuelingDQNAgent:
 		new_priorities = loss_for_prior + self.prior_eps
 		self.memory.update_priorities(indices, new_priorities)
 
-		# Sample new noisy distribution
 		if self.noisy:
 			self.dqn.reset_noise()
 			self.dqn_target.reset_noise()
@@ -236,11 +238,6 @@ class MultiAgentDuelingDQNAgent:
 			score = 0
 			length = 0
 			losses = []
-
-			# Initially sample noisy policy #
-			if self.noisy:
-				self.dqn.reset_noise()
-				self.dqn_target.reset_noise()
 
 			# PER: Increase beta temperature
 			self.beta = self.anneal_beta(p=episode / episodes, p_init=0, p_fin=0.9, b_init=0.4, b_end=1.0)
@@ -321,17 +318,19 @@ class MultiAgentDuelingDQNAgent:
 						self.save_model(name='BestPolicy.pth')
 
 				# If training is ready
-				if len(self.memory) >= self.batch_size and episode >= self.learning_starts and steps % self.train_every == 0:
+				if len(self.memory) >= self.batch_size and episode >= self.learning_starts:
 
 					# Update model parameters by backprop-bootstrapping #
-					loss = self.update_model()
-					# Append loss #
-					losses.append(loss)
 
-					# Update target soft/hard #
-					if self.soft_update:
-						self._target_soft_update()
-					elif episode % self.target_update == 0 and done:
+					if steps % self.train_every == 0:
+						loss = self.update_model()
+						# Append loss #
+						losses.append(loss)
+						# Update target soft/hard #
+						if self.soft_update:
+							self._target_soft_update()
+
+					if not self.soft_update and episode % self.target_update == 0 and done:
 						self._target_hard_update()
 
 			if self.save_every is not None:
@@ -354,23 +353,13 @@ class MultiAgentDuelingDQNAgent:
 		# G_t   = r + gamma * v(s_{t+1})  if state != Terminal
 		#       = r                       otherwise
 
+
 		curr_q_value = self.dqn(state).gather(1, action)
 		done_mask = 1 - done
 
 		with torch.no_grad():
 
-			if self.safe_action:
-				info_dictionaries = samples["info"]
-				unsafe_next_q_values = self.dqn_target(next_state)
-
-				for mask_dictionary, q_values in zip(info_dictionaries, unsafe_next_q_values):
-					q_values[mask_dictionary['safe_mask_']] = -np.inf
-
-				next_q_value = unsafe_next_q_values.max(dim=1, keepdim=True)[0]
-
-			else:
-				next_q_value = self.dqn_target(next_state).max(dim=1, keepdim=True)[0]
-
+			next_q_value = self.dqn_target(next_state).max(dim=1, keepdim=True)[0]
 			target = (reward + self.gamma * next_q_value * done_mask).to(self.device)
 
 		# calculate element-wise dqn loss
