@@ -21,15 +21,22 @@ class ShekelGT:
             self.nA = np.random.rand(number_of_peaks, 2)
             self.nC = np.ones(number_of_peaks) * 0.1
 
-            self.GroundTruth_field = np.array(list(map(self.evaluate, self.visitable_positions)))
+            self.GroundTruth_field = np.array(list(map(self.evaluate_nonnormalized, self.visitable_positions)))
+
+            self.GT_mean = self.GroundTruth_field.mean()
+            self.GT_std = self.GroundTruth_field.std()
 
         def shekel_arg0(self, sol):
 
             value = shekel(np.asarray(sol)/self.lims, self.pA, self.pC)[0] - shekel(np.asarray(sol)/self.lims, self.nA, self.nC)[0]
+
             return value
 
-        def evaluate(self, position):
+        def evaluate_nonnormalized(self, position):
             return self.shekel_arg0(position)
+
+        def evaluate(self, position):
+            return (self.shekel_arg0(position) - self.GT_mean)/(self.GT_std + 1E-8)
 
 
 
