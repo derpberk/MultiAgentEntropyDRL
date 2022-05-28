@@ -3,6 +3,7 @@ from Environment.MultiAgentEnvironment import UncertaintyReductionMA
 import numpy as np
 import matplotlib.pyplot as plt
 from metrics_wrapper import MetricsDataCreator, BenchmarkEvaluator
+from path_plotter import plot_trajectory
 
 
 nav = np.genfromtxt('../Environment/example_map.csv', delimiter=',')
@@ -42,27 +43,34 @@ multiagent = MultiAgentDuelingDQNAgent(env=env,
                                        noisy=True,
                                        safe_actions=False)
 
-evaluator = MetricsDataCreator(metrics_names=['Mean Reward', 'Uncertainty', 'Distance', 'Collisions', 'RMSE'], algorithm_name='Noisy DRL', experiment_name='Results')
+evaluator = MetricsDataCreator(metrics_names=['Mean Reward', 'Uncertainty', 'Distance', 'Collisions', 'RMSE'], algorithm_name='Noisy DRL', experiment_name='NoisyDRLResults')
 benchmark = BenchmarkEvaluator(navigation_map=nav)
 benchmark.reset_values()
 
 env.return_individual_rewards = True
 
-multiagent.load_model('/home/azken/Samuel/MultiAgentEntropyDRL/Learning/runs/May24_09-50-20_M3009R21854/BestPolicy.pth')
+multiagent.load_model('/home/azken/Samuel/MultiAgentEntropyDRL/Learning/runs/Noisy_Decoupled_Reward/Final_Policy.pth')
 
 multiagent.epsilon = 0.0
 
 np.random.seed(0)
 
+positions = []
+
 for run in range(10):
 
     done, t = False, 0
 
+    print("Run ", run)
+
     selected_positions = np.random.choice(np.arange(0,len(init_pos)), size=n_agents, replace = False)
     env.initial_positions = init_pos[selected_positions]
     s = env.reset()
-
+    R = 0
+    benchmark.reset_values()
     benchmark.update_rmse(positions=env.fleet.get_positions())
+
+    positions = env.fleet.get_positions().flatten()
 
     #env.render()
 
@@ -73,12 +81,22 @@ for run in range(10):
 
         s,r,done,i = env.step(a)
 
+        R += np.mean(r[0])
+
         rmse = benchmark.update_rmse(positions=env.fleet.get_positions())
 
-        evaluator.register_step(run_num=run, step = t, algorithm_name='Noisy DRL', metrics=[*r, rmse])
+        metrics = [R, np.mean(env.uncertainty), np.mean(np.sum(env.fleet.get_distance_matrix(), axis=1)/(n_agents-1)), env.fleet.fleet_collisions]
+
+        evaluator.register_step(run_num=run, step = t, metrics=[*metrics, rmse])
 
         t += 1
 
+        positions = np.vstack((positions, env.fleet.get_positions().flatten()))
+
         #env.render(pauseint=0.02)
 
+    #plot_trajectory(nav, positions)
+    #plt.show(block=True)
+
     # plt.show(block=True)
+evaluator.register_experiment()
