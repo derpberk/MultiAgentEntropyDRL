@@ -54,8 +54,8 @@ class BenchmarkEvaluator:
 		self.measured_values = None
 		self.rmse = []
 
-		kernel = Matern(length_scale=l, )
-		self.gpr = GaussianProcessRegressor(kernel=kernel, optimizer=None)
+		kernel = Matern(length_scale=l)
+		self.gpr = GaussianProcessRegressor(kernel=kernel, alpha=1e-7)
 
 	def reset_values(self):
 
@@ -77,14 +77,14 @@ class BenchmarkEvaluator:
 		self.measured_values = self.measured_values[unq_indx]
 
 		# Fit
-		self.gpr.fit(self.visited_positions, self.measured_values)
+		self.gpr.fit(self.visited_positions/self.navigation_map.shape, self.measured_values)
 		# Predict
-		predicted_values = self.gpr.predict(self.visitable_positions)
+		predicted_values = self.gpr.predict(self.visitable_positions/self.navigation_map.shape)
 
-		self.rmse.append(mean_squared_error(y_true = self.gt.GroundTruth_field, y_pred = predicted_values, squared = False))
+		self.rmse.append(mean_squared_error(y_true = (self.gt.GroundTruth_field - self.gt.GT_mean)/(self.gt.GT_std + 1e-8), y_pred = predicted_values, squared = False))
 
 
-		return self.rmse[-1]
+		return self.rmse[-1], predicted_values
 
 
 

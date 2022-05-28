@@ -40,10 +40,11 @@ env.return_individual_rewards = True
 np.random.seed(0)
 
 
-for run in range(1):
+for run in range(10):
 
 	print("Run ", run)
 	done, t = False, 0
+	R = 0
 
 	selected_positions = np.random.choice(np.arange(0, len(init_pos)), size=n_agents, replace=False)
 	env.initial_positions = init_pos[selected_positions]
@@ -62,6 +63,7 @@ for run in range(1):
 	while not done:
 
 		s, r, done, info = env.step(action)
+		R += np.mean(r[0])
 
 		if any(env.fleet.check_collisions(action)):
 
@@ -73,15 +75,19 @@ for run in range(1):
 				action[invalid_mask] = new_actions[invalid_mask]
 				valid = not any(env.fleet.check_collisions(action))
 
-		rmse = benchmark.update_rmse(positions=env.fleet.get_positions())
+		rmse,_ = benchmark.update_rmse(positions=env.fleet.get_positions())
 
-		evaluator.register_step(run_num=run, step=t, algorithm_name='Noisy DRL', metrics=[*r, rmse])
+		metrics = [R, np.mean(env.uncertainty),
+				   np.mean(np.sum(env.fleet.get_distance_matrix(), axis=1) / (n_agents - 1)),
+				   env.fleet.fleet_collisions]
+
+		evaluator.register_step(run_num=run, step=t, algorithm_name='Random Wanderer', metrics=[*metrics, rmse])
 
 		positions = np.vstack((positions, env.fleet.get_positions().flatten()))
 
 		t += 1
 
-	plot_trajectory(nav, positions)
-	plt.show(block=True)
+	#plot_trajectory(nav, positions)
+	#plt.show(block=True)
 
 evaluator.register_experiment()

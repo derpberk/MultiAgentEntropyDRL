@@ -83,7 +83,7 @@ for run in range(10):
 
         R += np.mean(r[0])
 
-        rmse = benchmark.update_rmse(positions=env.fleet.get_positions())
+        rmse, _ = benchmark.update_rmse(positions=env.fleet.get_positions())
 
         metrics = [R, np.mean(env.uncertainty), np.mean(np.sum(env.fleet.get_distance_matrix(), axis=1)/(n_agents-1)), env.fleet.fleet_collisions]
 
