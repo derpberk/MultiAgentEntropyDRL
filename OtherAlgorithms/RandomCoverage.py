@@ -1,7 +1,7 @@
 from Environment.MultiAgentEnvironment import UncertaintyReductionMA
 import numpy as np
 import matplotlib.pyplot as plt
-import time
+from Evaluation.path_plotter import plot_trajectory
 from Evaluation.metrics_wrapper import MetricsDataCreator, BenchmarkEvaluator
 
 plt.switch_backend('TkAgg')
@@ -39,7 +39,8 @@ env.return_individual_rewards = True
 
 np.random.seed(0)
 
-for run in range(10):
+
+for run in range(1):
 
 	print("Run ", run)
 	done, t = False, 0
@@ -50,6 +51,8 @@ for run in range(10):
 
 	benchmark.reset_values()
 	benchmark.update_rmse(positions=env.fleet.get_positions())
+
+	positions = env.fleet.get_positions().flatten()
 
 	action = np.random.randint(0, 8, n_agents)
 
@@ -74,6 +77,11 @@ for run in range(10):
 
 		evaluator.register_step(run_num=run, step=t, algorithm_name='Noisy DRL', metrics=[*r, rmse])
 
+		positions = np.vstack((positions, env.fleet.get_positions().flatten()))
+
 		t += 1
+
+	plot_trajectory(nav, positions)
+	plt.show(block=True)
 
 evaluator.register_experiment()
