@@ -189,9 +189,7 @@ if __name__ == "__main__":
 
             print("Current real Reward: ", R)
 
-            s, r, done, info = my_env.step(hof[0][:n_agents])
-
-            rmse, _ = benchmark.update_rmse(positions=env.fleet.get_positions())
+            rmse, _ = benchmark.update_rmse(positions=my_env.fleet.get_positions())
 
             metrics = [R, np.mean(my_env.uncertainty),
                        np.mean(np.sum(my_env.fleet.get_distance_matrix(), axis=1) / (n_agents - 1)),
