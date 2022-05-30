@@ -200,8 +200,8 @@ if __name__ == "__main__":
             indx += n_agents
             t += 1
 
-    plot_trajectory(nav, positions)
-    plt.show(block=True)
+    # plot_trajectory(nav, positions)
+    # plt.show(block=True)
 
 evaluator.register_experiment()
 

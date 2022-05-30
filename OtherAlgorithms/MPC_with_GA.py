@@ -8,13 +8,12 @@ from deap import tools
 import time
 from Environment.MultiAgentEnvironment import UncertaintyReductionMA
 from Evaluation.metrics_wrapper import MetricsDataCreator, BenchmarkEvaluator
-from Evaluation.path_plotter import plot_trajectory
 import matplotlib.pyplot as plt
 
 
 
 # --------- PARAMETERS ---------- #
-OPTIMIZATION_HORIZONT = 5
+OPTIMIZATION_HORIZONT = 20
 NUM_OF_ACTIONS = 8
 
 nav = np.genfromtxt('../Environment/example_map.csv', delimiter=',')
@@ -66,12 +65,7 @@ def evalEnv(individual, local_env):
         # Get new state
         state, reward, done, info = eval_env.step(np.asarray(individual[i:i+n_agents]))
         R += np.mean(reward)
-
         if done:
-            break
-
-        if eval_env.fleet.fleet_collisions >= 1:
-            R = -5
             break
 
     del eval_env
@@ -101,7 +95,7 @@ def cxTwoPointCopy(ind1, ind2):
 toolbox.register("evaluate", evalEnv, local_env=env)
 toolbox.register("mate", cxTwoPointCopy)
 toolbox.register("mutate", tools.mutFlipBit, indpb=0.05)
-toolbox.register("select", tools.selTournament, tournsize=5)
+toolbox.register("select", tools.selTournament, tournsize=3)
 
 
 def optimize_with_budget(global_env,t):
@@ -110,7 +104,7 @@ def optimize_with_budget(global_env,t):
     random.seed(64)
 
     # Generate the population
-    pop = toolbox.population(n=50)
+    pop = toolbox.population(n=300)
 
     # Fix the evaluation function with the current environment
     toolbox.register("evaluate", evalEnv, local_env=copy.deepcopy(global_env))
@@ -123,9 +117,9 @@ def optimize_with_budget(global_env,t):
     stats.register("min", np.min)
     stats.register("max", np.max)
 
-    #print(f"---------- OPTIMIZING THE MODEL. STEP {t} ----------")
-    pop, log = algorithms.eaMuPlusLambda(pop, toolbox, mu=50, lambda_=50, cxpb=0.6, mutpb=0.4, ngen=20, stats=stats, halloffame=hof, verbose=False)
-    #print(f"-----------------------------------------------------------------------------------------------")
+    print(f"---------- OPTIMIZING THE MODEL. STEP {t} ----------")
+    pop, log = algorithms.eaMuPlusLambda(pop, toolbox, mu=50, lambda_=50, cxpb=0.5, mutpb=0.5, ngen=20, stats=stats, halloffame=hof, verbose=True)
+    print(f"-----------------------------------------------------------------------------------------------")
     return pop, log, hof
 
 
@@ -193,9 +187,11 @@ if __name__ == "__main__":
             _, r, done, _ = my_env.step(hof[0][:n_agents])
             R += np.mean(r)
 
-            print(f"Current real Reward in step {t}: {R} ")
+            print("Current real Reward: ", R)
 
-            rmse, _ = benchmark.update_rmse(positions=my_env.fleet.get_positions())
+            s, r, done, info = my_env.step(hof[0][:n_agents])
+
+            rmse, _ = benchmark.update_rmse(positions=env.fleet.get_positions())
 
             metrics = [R, np.mean(my_env.uncertainty),
                        np.mean(np.sum(my_env.fleet.get_distance_matrix(), axis=1) / (n_agents - 1)),
@@ -208,7 +204,7 @@ if __name__ == "__main__":
             indx += n_agents
             t += 1
 
-        # plot_trajectory(nav, positions)
-        # plt.show(block=True)
+    # plot_trajectory(nav, positions)
+    # plt.show(block=True)
 
     evaluator.register_experiment()

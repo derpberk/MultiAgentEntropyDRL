@@ -9,9 +9,12 @@ def plot_trajectory(env_map, trajectories):
 
 	plt.style.use('grayscale')
 
+	plt.ion()
+
 	styles = ['solid', 'dashed', 'dashdot', 'dotted']
 
 	env_map = ndimage.binary_dilation(env_map, [[False, True, False], [True, True, True], [False, True, False]])
+
 
 	n_trajs = int(trajectories.shape[1]/2)
 
@@ -37,5 +40,5 @@ def plot_trajectory(env_map, trajectories):
 
 
 	plt.legend()
-	plt.show(block=True)
+	plt.show()
 
