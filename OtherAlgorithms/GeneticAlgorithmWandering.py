@@ -115,10 +115,10 @@ toolbox.register("mate", cxTwoPointCopy)
 toolbox.register("mutate", tools.mutFlipBit, indpb=0.05)
 toolbox.register("select", tools.selTournament, tournsize=5)
 
-
+"""
 pool = multiprocessing.Pool()
 toolbox.register("map", pool.map)
-
+"""
 
 
 def optimize(local_env, save=False):
@@ -144,7 +144,7 @@ def optimize(local_env, save=False):
     stats.register("min", np.min)
     stats.register("max", np.max)
 
-    algorithms.eaSimple(pop, toolbox, cxpb=0.5, mutpb=0.5, ngen=50, stats=stats, halloffame=hof)
+    algorithms.eaSimple(pop, toolbox, cxpb=0.5, mutpb=0.5, ngen=60, stats=stats, halloffame=hof)
 
     if save:
 
@@ -200,29 +200,9 @@ if __name__ == "__main__":
 
         print(my_env.initial_positions)
 
-        individual = best
-        actions = np.asarray(np.split(individual, n_agents)).T
-        action_indxs = np.zeros(n_agents).astype(int)
-        selected_actions = np.asarray([actions[action_indxs[i], i] for i in range(n_agents)])
-        safe_mask = np.asarray(my_env.fleet.check_collisions(selected_actions)).astype(int)
-
-        while any(safe_mask):
-            action_indxs += safe_mask.astype(int)
-            selected_actions = np.asarray([actions[action_indxs[i], i] for i in range(n_agents)])
-            safe_mask = np.asarray(my_env.fleet.check_collisions(selected_actions)).astype(int)
-
         while not done:
 
-            s, r, done, info = my_env.step(selected_actions)
-
-            selected_actions = np.asarray([actions[action_indxs[i], i] for i in range(n_agents)])
-            safe_mask = np.asarray(my_env.fleet.check_collisions(selected_actions)).astype(int)
-
-            while any(safe_mask):
-                action_indxs += safe_mask.astype(int)
-                selected_actions = np.asarray([actions[action_indxs[i], i] for i in range(n_agents)])
-                safe_mask = np.asarray(my_env.fleet.check_collisions(selected_actions)).astype(int)
-
+            s, r, done, info = my_env.step(best[indx:indx+n_agents])
             R += np.mean(r[0])
 
             rmse, _ = benchmark.update_rmse(positions=my_env.fleet.get_positions())
@@ -238,9 +218,9 @@ if __name__ == "__main__":
             indx += n_agents
             t += 1
 
-        # plot_trajectory(nav, positions)
-        # plt.show(block=True)
+        plot_trajectory(nav, positions)
+        plt.show(block=True)
 
 evaluator.register_experiment()
 
-pool.close()
+# pool.close()
