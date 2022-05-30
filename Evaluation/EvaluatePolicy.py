@@ -40,16 +40,16 @@ multiagent = MultiAgentDuelingDQNAgent(env=env,
                                        learning_starts=0,
                                        gamma=0.99,
                                        lr=1e-4,
-                                       noisy=True,
+                                       noisy=False,
                                        safe_actions=False)
 
-evaluator = MetricsDataCreator(metrics_names=['Mean Reward', 'Uncertainty', 'Distance', 'Collisions', 'RMSE'], algorithm_name='Noisy DRL', experiment_name='NoisyDRLResults')
+evaluator = MetricsDataCreator(metrics_names=['Mean Reward', 'Uncertainty', 'Distance', 'Collisions', 'RMSE'], algorithm_name='Epsilon DRL', experiment_name='BestEpsilonDRLResults')
 benchmark = BenchmarkEvaluator(navigation_map=nav)
 benchmark.reset_values()
 
 env.return_individual_rewards = True
 
-multiagent.load_model('/home/azken/Samuel/MultiAgentEntropyDRL/Learning/runs/Noisy_Decoupled_Reward/Final_Policy.pth')
+multiagent.load_model('/home/azken/Samuel/MultiAgentEntropyDRL/Learning/runs/Epsilon_Decoupled_Reward/BestPolicy.pth')
 
 multiagent.epsilon = 0.0
 
